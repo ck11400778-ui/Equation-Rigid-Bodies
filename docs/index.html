@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equation Rigid Bodies</title>
+    <meta name="color-scheme" content="light">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+<body>
+  <div id="comboBanner" class="combo-banner" aria-live="polite"></div>
+  <div id="unlockBanner" class="unlock-banner" aria-live="polite"></div>
+  <div id="gameOverOverlay" class="game-over-overlay" hidden>
+    <div class="game-over-card">
+      <p class="eyebrow">Run Ended</p>
+      <h2>Bomb Hit</h2>
+      <p id="gameOverText">You triggered a bomb block.</p>
+      <div class="result-grid">
+        <div class="result-stat">
+          <span>Score</span>
+          <strong id="resultScore">0</strong>
+        </div>
+        <div class="result-stat">
+          <span>Money</span>
+          <strong id="resultMoney">0</strong>
+        </div>
+        <div class="result-stat">
+          <span>Best</span>
+          <strong id="resultBest">0</strong>
+        </div>
+      </div>
+      <div class="save-score-row">
+        <input id="playerNameInput" type="text" maxlength="16" placeholder="Your name">
+        <button id="saveScore" type="button">Save Score</button>
+      </div>
+      <p id="saveScoreStatus" class="feedback compact"></p>
+      <button id="restartGame" type="button">Restart</button>
+    </div>
+  </div>
+  <main class="layout">
+    <section class="board-panel">
+      <div class="panel-head">
+        <div class="stats">
+          <div class="stat">
+            <span>Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat money-stat">
+            <span>Money</span>
+            <strong id="money">0</strong>
+          </div>
+          <div class="stat">
+            <span>Best</span>
+            <strong id="bestScore">0</strong>
+          </div>
+          <div class="stat" id="timerStat" hidden>
+            <span>Time</span>
+            <strong id="modeTimer">60</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="board-shell">
+        <canvas id="board" width="900" height="900" aria-label="Equation rigid body board"></canvas>
+      </div>
+    </section>
+
+    <aside class="quiz-panel">
+      <div class="card mode-card">
+        <h3>Modes</h3>
+        <div id="modeList" class="mode-list"></div>
+      </div>
+
+      <div id="tutorialCard" class="card tutorial-card">
+        <div class="card-head">
+          <h3>Quick Start</h3>
+          <button id="dismissTutorial" type="button" class="secondary small-button">Hide</button>
+        </div>
+        <p class="feedback compact">Wait for the board to settle, then pick the line that clears the most cells.</p>
+        <p class="feedback compact">Coins give money for tools. Normal hits on bombs end the run, but store tools can safely remove them.</p>
+        <p class="feedback compact">Quadratic and circle choices unlock as your score rises.</p>
+      </div>
+
+      <div class="card target-card">
+        <h3>Options</h3>
+        <div id="choices" class="choices"></div>
+        <div id="selfFormulaMount" class="self-formula-mount"></div>
+        <p id="status" class="feedback">
+          Wait for the world to become still, then choose a line or use a tool from the shop.
+        </p>
+      </div>
+
+      <div class="card store-card">
+        <h3>Store</h3>
+        <p class="feedback">
+          Spend money on emergency tools. Bomb tools remove a live bomb, and polynomial tools let you enter your own curve.
+        </p>
+        <div class="store-list">
+          <div class="store-item">
+            <div class="store-copy">
+              <strong>Bomb Defuser</strong>
+              <span>Cost: $30. Removes one bomb block from the board.</span>
+            </div>
+            <div class="store-actions">
+              <span class="store-owned">Owned: <strong id="defuserCount">0</strong></span>
+              <div class="store-buttons">
+                <button id="buyDefuser" type="button" class="secondary">Buy</button>
+                <button id="useDefuser" type="button" class="secondary">Use</button>
+              </div>
+            </div>
+          </div>
+          <div id="polynomialStoreCard" class="store-item">
+            <div class="store-copy">
+              <strong>Polynomial Tool</strong>
+              <span>Cost: $45. Fires one safe thick curve, pays extra for bomb hits, and doubles coin earnings.</span>
+            </div>
+            <div class="store-actions">
+              <span class="store-owned">Owned: <strong id="polynomialToolCount">0</strong></span>
+              <div class="store-buttons">
+                <button id="buyPolynomialTool" type="button" class="secondary">Buy</button>
+                <button id="usePolynomialTool" type="button" class="secondary">Use</button>
+              </div>
+            </div>
+            <div id="polynomialPanel" class="polynomial-panel" hidden>
+              <label class="polynomial-label" for="polynomialInput">Coefficients</label>
+              <input id="polynomialInput" class="polynomial-input" type="text" placeholder="1,0,-2,1">
+              <p class="polynomial-help">Fill from highest degree to constant.</p>
+              <p class="polynomial-help">Your typed formula is the final formula. It no longer shifts after input.</p>
+              <p class="polynomial-help">A live preview appears on the board while you type, and the curve clears one band wider than normal.</p>
+              <p class="polynomial-help">Safe bomb hits do not end the game. Each bomb also gives bonus money and a small blast.</p>
+              <p class="polynomial-help">`3,-4` means `y = 3x - 4`.</p>
+              <p class="polynomial-help">`1,-2,1` means `y = x^2 - 2x + 1`.</p>
+              <p class="polynomial-help">`1,0,-2,1` means `y = x^3 - 2x + 1`.</p>
+              <p id="polynomialGuide" class="polynomial-guide">The 1st number is the highest-power coefficient, and the last number is the constant term.</p>
+              <div class="store-buttons">
+                <button id="confirmPolynomialTool" type="button" class="secondary">Arm</button>
+                <button id="cancelPolynomialTool" type="button" class="secondary">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card leaderboard-card">
+        <h3 id="leaderboardTitle">Leaderboard</h3>
+        <div id="leaderboardList" class="leaderboard-list"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

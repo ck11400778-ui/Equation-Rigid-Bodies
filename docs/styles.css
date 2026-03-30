@@ -1,0 +1,654 @@
+:root {
+  --bg-top: #f6edd8;
+  --bg-bottom: #e0b36a;
+  --panel: rgba(255, 250, 241, 0.9);
+  --ink: #302018;
+  --muted: #765a49;
+  --axis: #5c392c;
+  --grid: rgba(92, 57, 44, 0.12);
+  --target: #f4c542;
+  --active: #1f8f67;
+  --shadow: 0 22px 48px rgba(83, 53, 34, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  color: var(--ink);
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 26%),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
+.combo-banner {
+  position: fixed;
+  left: 50%;
+  top: 24px;
+  transform: translateX(-50%) scale(0.86);
+  padding: 14px 26px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 219, 122, 0.96), rgba(255, 140, 66, 0.96));
+  color: #4f2417;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2.3rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 18px 30px rgba(102, 48, 25, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 180ms ease;
+  z-index: 20;
+}
+
+.combo-banner.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.unlock-banner {
+  position: fixed;
+  left: 50%;
+  top: 88px;
+  transform: translateX(-50%) translateY(-8px);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(74, 148, 111, 0.95), rgba(31, 111, 84, 0.95));
+  color: #f5fff9;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 14px 28px rgba(31, 80, 61, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 180ms ease;
+  z-index: 21;
+}
+
+.unlock-banner.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.game-over-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(50, 26, 20, 0.48);
+  z-index: 30;
+}
+
+.game-over-overlay[hidden] {
+  display: none !important;
+}
+
+.game-over-card {
+  width: min(420px, calc(100% - 32px));
+  padding: 28px;
+  border-radius: 28px;
+  background: rgba(255, 247, 239, 0.96);
+  box-shadow: 0 24px 48px rgba(57, 31, 22, 0.25);
+  text-align: center;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+
+.result-stat {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.result-stat span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.result-stat strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.2rem;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.save-score-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.save-score-row input {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(122, 84, 60, 0.2);
+  font: inherit;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.layout {
+  width: min(1420px, calc(100% - 28px));
+  margin: 18px auto 28px;
+  display: grid;
+  grid-template-columns: 1.55fr 0.85fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.board-panel,
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(122, 84, 60, 0.15);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+}
+
+.board-panel {
+  padding: 22px;
+  position: sticky;
+  top: 18px;
+}
+
+.panel-head,
+.stats,
+.controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.panel-head {
+  align-items: center;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #9d4528;
+  font-size: 0.82rem;
+  font-family: "Trebuchet MS", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+.stat,
+.world-grid > div {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+  text-align: center;
+}
+
+.stat span,
+.label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.stat strong,
+.world-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.35rem;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.money-stat {
+  background: linear-gradient(180deg, rgba(255, 244, 193, 0.92), rgba(255, 224, 138, 0.8));
+}
+
+.money-stat strong {
+  color: #8e5b00;
+}
+
+.board-shell {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 243, 215, 0.8));
+}
+
+#board {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  display: block;
+  border-radius: 18px;
+}
+
+.quiz-panel {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.card {
+  padding: 20px;
+}
+
+.target-card {
+  order: 1;
+}
+
+.store-card {
+  order: 2;
+}
+
+.mode-card {
+  order: 3;
+}
+
+.leaderboard-card {
+  order: 4;
+}
+
+.tutorial-card {
+  order: 5;
+}
+
+.controls {
+  margin-top: 14px;
+}
+
+button {
+  border: none;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #a04b2d;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.secondary,
+.choice {
+  background: #fff8ed;
+  color: var(--ink);
+}
+
+.feedback {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.feedback.compact {
+  margin-top: 8px;
+}
+
+.queue-list,
+.choices {
+  display: grid;
+  gap: 10px;
+}
+
+.store-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mode-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mode-button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(122, 84, 60, 0.12);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--ink);
+  text-align: left;
+}
+
+.mode-button.active {
+  outline: 2px solid rgba(31, 143, 103, 0.38);
+  background: rgba(233, 255, 246, 0.88);
+}
+
+.mode-button strong {
+  display: block;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.mode-button span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.87rem;
+  line-height: 1.4;
+}
+
+.tutorial-card .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.small-button {
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 0.86rem;
+}
+
+.store-item {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(122, 84, 60, 0.12);
+}
+
+.self-formula-mount {
+  display: grid;
+  gap: 10px;
+}
+
+.store-copy strong,
+.store-owned strong {
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.store-copy span,
+.store-owned {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.store-actions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.store-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 10px;
+}
+
+.leaderboard-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.leaderboard-rank,
+.leaderboard-score {
+  font-family: "Trebuchet MS", sans-serif;
+  font-weight: 700;
+}
+
+.leaderboard-name {
+  min-width: 0;
+}
+
+.leaderboard-empty {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--muted);
+}
+
+.polynomial-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 248, 237, 0.78);
+  border: 1px solid rgba(122, 84, 60, 0.12);
+}
+
+#selfFormulaMount .polynomial-panel {
+  margin-top: 14px;
+}
+
+.polynomial-panel[hidden] {
+  display: none !important;
+}
+
+.polynomial-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.polynomial-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(122, 84, 60, 0.22);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font: inherit;
+}
+
+.polynomial-help {
+  margin: 8px 0 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.polynomial-guide {
+  margin: 8px 0 12px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(244, 197, 66, 0.16);
+  color: #6e4a12;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+.queue-item,
+.choice {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.queue-item strong,
+.choice strong {
+  display: block;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.queue-item span,
+.choice span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(122, 84, 60, 0.12);
+  text-align: left;
+  border-radius: 999px;
+}
+
+.choice.correct {
+  outline: 2px solid rgba(31, 143, 103, 0.4);
+}
+
+.choice.wrong {
+  outline: 2px solid rgba(186, 69, 69, 0.35);
+}
+
+.choice-badge {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f9d68c, #f2b84b);
+  color: #5b3629;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.45);
+}
+
+.choice-copy {
+  display: block;
+  min-width: 0;
+}
+
+.choice-copy strong {
+  display: block;
+}
+
+.choice-copy span {
+  display: block;
+  margin-top: 4px;
+}
+
+@media (max-width: 1040px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .board-panel {
+    position: static;
+  }
+
+  .quiz-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .target-card,
+  .store-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .layout {
+    width: min(100% - 14px, 1200px);
+    margin-top: 10px;
+    gap: 14px;
+  }
+
+  .board-panel,
+  .card {
+    padding: 14px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .board-shell {
+    margin-top: 12px;
+    padding: 8px;
+    border-radius: 20px;
+  }
+
+  .quiz-panel {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .choice {
+    padding: 10px 12px;
+    border-radius: 22px;
+  }
+
+  .choice-badge {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    font-size: 0.95rem;
+  }
+
+  .store-actions,
+  .save-score-row {
+    grid-template-columns: 1fr;
+  }
+
+  .store-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .store-buttons {
+    width: 100%;
+  }
+
+  .store-buttons button,
+  .save-score-row button,
+  .save-score-row input,
+  button {
+    width: 100%;
+  }
+
+  .combo-banner {
+    top: 12px;
+    width: calc(100% - 24px);
+    text-align: center;
+    padding: 12px 16px;
+  }
+
+  .unlock-banner {
+    top: 66px;
+    width: calc(100% - 32px);
+    text-align: center;
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .game-over-card {
+    padding: 22px 18px;
+  }
+}

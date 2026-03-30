@@ -1,0 +1,30 @@
+{
+  "name": "equation-rigid-bodies",
+  "version": "0.1.0",
+  "description": "Desktop build for the Equation Rigid Bodies puzzle game.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "package": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.codex.equationrigidbodies",
+    "productName": "Equation Rigid Bodies",
+    "files": [
+      "index.html",
+      "styles.css",
+      "script.js",
+      "main.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  }
+}
