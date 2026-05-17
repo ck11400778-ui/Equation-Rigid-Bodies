@@ -153,6 +153,9 @@ const leaderboardListEl = document.getElementById("leaderboardList");
 const leaderboardTitleEl = document.getElementById("leaderboardTitle");
 const modeListEl = document.getElementById("modeList");
 
+let supabaseClient = null;
+let leaderboardRequestId = 0;
+
 const state = {
   bodies: [],
   nextId: 1,
@@ -272,13 +275,68 @@ function getModeConfig() {
   return GAME_MODES[state.selectedMode] || GAME_MODES.standard;
 }
 
-function loadLeaderboardForCurrentMode() {
+function loadLocalLeaderboardForCurrentMode() {
   try {
     const parsed = JSON.parse(safeStorageGet(getLeaderboardStorageKey(), "[]"));
     state.leaderboard = Array.isArray(parsed) ? parsed.slice(0, 10) : [];
   } catch {
     state.leaderboard = [];
   }
+}
+
+function getSupabaseClient() {
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
+  const config = window.EQUATION_RB_SUPABASE_CONFIG;
+  if (!config?.url || !config?.anonKey || !window.supabase?.createClient) {
+    return null;
+  }
+
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+  return supabaseClient;
+}
+
+async function loadLeaderboardForCurrentMode() {
+  const requestId = ++leaderboardRequestId;
+  const client = getSupabaseClient();
+
+  if (!client) {
+    loadLocalLeaderboardForCurrentMode();
+    renderLeaderboard();
+    return;
+  }
+
+  const { data, error } = await client
+    .from("leaderboard_entries")
+    .select("name, score, money, time_seconds, created_at")
+    .eq("mode", state.selectedMode)
+    .order("score", { ascending: false })
+    .order("time_seconds", { ascending: false, nullsFirst: false })
+    .order("money", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(10);
+
+  if (requestId !== leaderboardRequestId) {
+    return;
+  }
+
+  if (error) {
+    console.error("Supabase leaderboard load failed:", error);
+    loadLocalLeaderboardForCurrentMode();
+    renderLeaderboard();
+    return;
+  }
+
+  state.leaderboard = (data || []).map((entry) => ({
+    name: entry.name,
+    score: entry.score,
+    money: entry.money,
+    time: entry.time_seconds,
+    at: entry.created_at,
+  }));
+  renderLeaderboard();
 }
 
 function randomInt(min, max) {
@@ -2039,7 +2097,7 @@ function refreshModeButtons() {
   });
 }
 
-function saveCurrentRunToLeaderboard() {
+async function saveCurrentRunToLeaderboard() {
   if (state.scoreSavedThisRun) {
     setElementText(saveScoreStatusEl, "這一局已經儲存過了。");
     return;
@@ -2049,13 +2107,35 @@ function saveCurrentRunToLeaderboard() {
   const name = rawName || "玩家";
   safeStorageSet(STORAGE_KEYS.playerName, name);
 
-  state.leaderboard.push({
+  const entry = {
     name,
     score: state.score,
     money: state.money,
     time: state.selectedMode === "bomb_timer" ? state.modeTimer : null,
     at: new Date().toISOString(),
-  });
+  };
+
+  const client = getSupabaseClient();
+  if (client) {
+    const { error } = await client.from("leaderboard_entries").insert({
+      mode: state.selectedMode,
+      name: entry.name,
+      score: entry.score,
+      money: entry.money,
+      time_seconds: entry.time,
+    });
+
+    if (!error) {
+      state.scoreSavedThisRun = true;
+      setElementText(saveScoreStatusEl, "分數已儲存到雲端排行榜。");
+      await loadLeaderboardForCurrentMode();
+      return;
+    }
+
+    console.error("Supabase leaderboard save failed:", error);
+  }
+
+  state.leaderboard.push(entry);
   state.leaderboard.sort((a, b) => {
     if (b.score !== a.score) {
       return b.score - a.score;
@@ -3179,16 +3259,16 @@ restartGameButton.addEventListener("click", () => {
 });
 
 if (saveScoreButton) {
-  saveScoreButton.addEventListener("click", () => {
-    saveCurrentRunToLeaderboard();
+  saveScoreButton.addEventListener("click", async () => {
+    await saveCurrentRunToLeaderboard();
   });
 }
 
 if (playerNameInputEl) {
-  playerNameInputEl.addEventListener("keydown", (event) => {
+  playerNameInputEl.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      saveCurrentRunToLeaderboard();
+      await saveCurrentRunToLeaderboard();
     }
   });
 }
