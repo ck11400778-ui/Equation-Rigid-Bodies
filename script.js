@@ -1940,6 +1940,13 @@ function showUnlockBanner(text) {
 }
 
 function checkUnlockMilestones() {
+  if (state.selectedMode === "curves_only") {
+    state.unlocksShown.quadratic = true;
+    state.unlocksShown.circle = true;
+    state.unlocksShown.exponential = true;
+    return;
+  }
+
   if (!state.unlocksShown.quadratic && state.score >= QUADRATIC_UNLOCK_SCORE) {
     state.unlocksShown.quadratic = true;
     showUnlockBanner("已解鎖二次函數");
@@ -2659,7 +2666,7 @@ function renderChoices() {
       `<span class="choice-badge">${String.fromCharCode(65 + index)}</span>`,
       `<span class="choice-copy">`,
       `<strong>${choice.label}</strong>`,
-      `<span>就算答錯也會執行這條線。目前可清除：${choice.clearCount} 格。</span>`,
+      `<span>就算答錯也會執行這條線。</span>`,
       `</span>`,
     ].join("");
     button.addEventListener("click", () => handleChoice(choice, button));
