@@ -11,6 +11,8 @@ const CHALLENGE_BODY_THRESHOLD = 9;
 const CHALLENGE_TOP_ROW = 4;
 const QUADRATIC_UNLOCK_SCORE = 120;
 const CIRCLE_UNLOCK_SCORE = 260;
+const EXPONENTIAL_UNLOCK_SCORE = 420;
+const LOGARITHMIC_UNLOCK_SCORE = 620;
 const DEFUSER_COST = 30;
 const POLYNOMIAL_TOOL_COST = 45;
 const POLYNOMIAL_BOMB_BONUS = 20;
@@ -18,8 +20,8 @@ const POLYNOMIAL_TOOL_THICKNESS = 1.35;
 const GAME_MODES = {
   standard: {
     id: "standard",
-    name: "Standard",
-    description: "Default mix of lines, unlocks, choices, bombs, and store tools.",
+    name: "標準模式",
+    description: "一般玩法，包含直線、解鎖題型、炸彈與商店道具。",
     families: () => {
       const families = ["linear"];
       if (state.score >= QUADRATIC_UNLOCK_SCORE) {
@@ -27,6 +29,12 @@ const GAME_MODES = {
       }
       if (state.score >= CIRCLE_UNLOCK_SCORE) {
         families.push("circle");
+      }
+      if (state.score >= EXPONENTIAL_UNLOCK_SCORE) {
+        families.push("exponential");
+      }
+      if (state.score >= LOGARITHMIC_UNLOCK_SCORE) {
+        families.push("logarithmic");
       }
       return families;
     },
@@ -37,9 +45,9 @@ const GAME_MODES = {
   },
   curves_only: {
     id: "curves_only",
-    name: "Curves Only",
-    description: "Only quadratic and circle equations appear from the start.",
-    families: () => ["quadratic", "circle"],
+    name: "曲線模式",
+    description: "開局就只出現二次、圓形與指數函數。",
+    families: () => ["quadratic", "circle", "exponential"],
     specials: "default",
     choiceMode: "normal",
     infinitePolynomial: false,
@@ -47,8 +55,8 @@ const GAME_MODES = {
   },
   bomb_timer: {
     id: "bomb_timer",
-    name: "Bomb Timer",
-    description: "Bombs are the only special block. Everything else is plain.",
+    name: "炸彈計時",
+    description: "炸彈是唯一特殊方塊，並記錄生存時間。",
     families: () => {
       const families = ["linear"];
       if (state.score >= QUADRATIC_UNLOCK_SCORE) {
@@ -56,6 +64,12 @@ const GAME_MODES = {
       }
       if (state.score >= CIRCLE_UNLOCK_SCORE) {
         families.push("circle");
+      }
+      if (state.score >= EXPONENTIAL_UNLOCK_SCORE) {
+        families.push("exponential");
+      }
+      if (state.score >= LOGARITHMIC_UNLOCK_SCORE) {
+        families.push("logarithmic");
       }
       return families;
     },
@@ -66,8 +80,8 @@ const GAME_MODES = {
   },
   self_formula: {
     id: "self_formula",
-    name: "Self Formula",
-    description: "No multiple choice. You clear only with your own typed equation.",
+    name: "自訂公式",
+    description: "沒有選擇題，只能靠自己輸入方程式清場。",
     families: () => ["linear"],
     specials: "default",
     choiceMode: "self_formula_only",
@@ -174,11 +188,14 @@ const state = {
   modeTimer: 0,
   modeTimerInterval: null,
   modeTimerStarted: false,
+  refillingWorld: false,
   turnCount: 0,
   gameOver: false,
   unlocksShown: {
     quadratic: false,
     circle: false,
+    exponential: false,
+    logarithmic: false,
   },
   leaderboard: [],
   scoreSavedThisRun: false,
@@ -389,6 +406,32 @@ function buildCircleFormula() {
   };
 }
 
+function buildExponentialFormula() {
+  const base = sample([2, 3]);
+  return {
+    family: "exponential",
+    id: `exp-${Math.random().toString(36).slice(2, 6)}`,
+    a: sample([1, -1]),
+    base,
+    h: randomInt(-4, 2),
+    k: randomInt(-3, 3),
+    length: base === 3 ? 3 : randomInt(3, 4),
+  };
+}
+
+function buildLogarithmicFormula() {
+  const base = sample([2, 3]);
+  return {
+    family: "logarithmic",
+    id: `log-${Math.random().toString(36).slice(2, 6)}`,
+    a: sample([1, -1]),
+    base,
+    h: randomInt(-5, 1),
+    k: randomInt(-3, 3),
+    length: base === 3 ? 3 : randomInt(3, 4),
+  };
+}
+
 function generateFormula() {
   const family = sample(getAvailableFamilies());
   if (family === "quadratic") {
@@ -396,6 +439,12 @@ function generateFormula() {
   }
   if (family === "circle") {
     return buildCircleFormula();
+  }
+  if (family === "exponential") {
+    return buildExponentialFormula();
+  }
+  if (family === "logarithmic") {
+    return buildLogarithmicFormula();
   }
   return buildLinearFormula();
 }
@@ -439,10 +488,13 @@ function resetState() {
   state.turnCount = 0;
   state.modeTimer = 0;
   state.modeTimerStarted = false;
+  state.refillingWorld = false;
   state.scoreSavedThisRun = false;
   state.unlocksShown = {
     quadratic: false,
     circle: false,
+    exponential: false,
+    logarithmic: false,
   };
   hideGameOver();
   comboBannerEl.classList.remove("show");
@@ -451,13 +503,13 @@ function resetState() {
     unlockBannerEl.classList.remove("show");
   }
   if (toggleSimButton) {
-    toggleSimButton.textContent = "Pause";
+    toggleSimButton.textContent = "暫停";
   }
   setElementText(
     statusEl,
     mode.choiceMode === "self_formula_only"
-      ? "Self Formula mode: type your own equation in Options, then press Arm."
-      : "Wait for the world to become still, then choose a line or use a tool from the shop."
+      ? "自訂公式模式：在選項區輸入你的方程式，再按下發動。"
+      : "等盤面靜止後，選一條方程式，或使用商店中的道具。"
   );
   startModeTimerIfNeeded();
 }
@@ -514,12 +566,38 @@ function buildCirclePoints(formula) {
   return points;
 }
 
+function buildExponentialPoints(formula) {
+  const points = [];
+  for (let index = 0; index < formula.length; index += 1) {
+    const x = formula.h + index;
+    const y = formula.a * (formula.base ** index) + formula.k;
+    points.push({ col: x, row: -y });
+  }
+  return points;
+}
+
+function buildLogarithmicPoints(formula) {
+  const points = [];
+  for (let index = 0; index < formula.length; index += 1) {
+    const x = formula.h + (formula.base ** index);
+    const y = formula.a * index + formula.k;
+    points.push({ col: x, row: -y });
+  }
+  return points;
+}
+
 function getFormulaPoints(formula) {
   if (formula.family === "quadratic") {
     return buildQuadraticPoints(formula);
   }
   if (formula.family === "circle") {
     return buildCirclePoints(formula);
+  }
+  if (formula.family === "exponential") {
+    return buildExponentialPoints(formula);
+  }
+  if (formula.family === "logarithmic") {
+    return buildLogarithmicPoints(formula);
   }
   return buildLinearPoints(formula);
 }
@@ -562,6 +640,18 @@ function toMathCoord(cell) {
 
 function formatNumber(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function getFamilyDisplayName(family) {
+  const names = {
+    linear: "直線",
+    quadratic: "二次",
+    circle: "圓形",
+    exponential: "指數",
+    logarithmic: "對數",
+    polynomial: "多項式",
+  };
+  return names[family] || family;
 }
 
 function getEquationData(formula, cell) {
@@ -609,6 +699,54 @@ function getEquationData(formula, cell) {
       hitTest(mathPoint) {
         const distance = Math.sqrt((mathPoint.x - h) ** 2 + (mathPoint.y - k) ** 2);
         return Math.abs(distance - r) <= 0.55;
+      },
+    };
+  }
+
+  if (formula.family === "exponential") {
+    const { a, base, h, k } = formula;
+    const aText = a === 1 ? "" : a === -1 ? "-" : formatNumber(a);
+    const hText = h === 0 ? "x" : `x ${h >= 0 ? "-" : "+"} ${formatNumber(Math.abs(h))}`;
+    const label = k === 0
+      ? `y = ${aText}${base}^(${hText})`
+      : `y = ${aText}${base}^(${hText}) ${k > 0 ? "+" : "-"} ${formatNumber(Math.abs(k))}`;
+
+    return {
+      family: "exponential",
+      a,
+      base,
+      h,
+      k,
+      label,
+      hitTest(mathPoint) {
+        const expectedY = a * (base ** (mathPoint.x - h)) + k;
+        return Number.isFinite(expectedY) && Math.abs(mathPoint.y - expectedY) <= 0.6;
+      },
+    };
+  }
+
+  if (formula.family === "logarithmic") {
+    const { a, base, h, k } = formula;
+    const aText = a === 1 ? "" : a === -1 ? "-" : formatNumber(a);
+    const insideText = h === 0 ? "x" : `x ${h >= 0 ? "-" : "+"} ${formatNumber(Math.abs(h))}`;
+    const label = k === 0
+      ? `y = ${aText}log_${base}(${insideText})`
+      : `y = ${aText}log_${base}(${insideText}) ${k > 0 ? "+" : "-"} ${formatNumber(Math.abs(k))}`;
+
+    return {
+      family: "logarithmic",
+      a,
+      base,
+      h,
+      k,
+      label,
+      hitTest(mathPoint) {
+        const shiftedX = mathPoint.x - h;
+        if (shiftedX <= 0) {
+          return false;
+        }
+        const expectedY = a * (Math.log(shiftedX) / Math.log(base)) + k;
+        return Number.isFinite(expectedY) && Math.abs(mathPoint.y - expectedY) <= 0.6;
       },
     };
   }
@@ -806,7 +944,7 @@ function getActiveBody() {
 
 function spawnNextBody() {
   if (getActiveBody()) {
-    statusEl.textContent = "Wait for the current body to settle before dropping another one.";
+    statusEl.textContent = "請先等目前的剛體落穩，再生成下一個。";
     return;
   }
 
@@ -821,8 +959,8 @@ function spawnNextBody() {
   if (blockedAtSpawn || bodyIntersectsWorld(body) || bodyWouldHitWorld(body)) {
     chooseTargetBody(true);
     statusEl.textContent = state.awaitingAnswer
-      ? "Spawn area is blocked, so the game switched into challenge mode."
-      : "Spawn area is blocked. Cut a support body before dropping more pieces.";
+      ? "出生區被卡住了，已自動切換到出題模式。"
+      : "出生區被卡住了，先清掉一些支撐方塊再繼續。";
     state.queue.unshift(formula);
     updateUI();
     drawBoard();
@@ -837,6 +975,73 @@ function spawnNextBody() {
   drawBoard();
 }
 
+function settleInactiveBodies() {
+  let moved = true;
+  let guard = 0;
+
+  while (moved && guard < WORLD_ROWS * 4) {
+    moved = false;
+    const bodies = state.bodies
+      .filter((body) => !body.active)
+      .slice()
+      .sort((a, b) => {
+        const aBottom = Math.max(...a.cells.map((cell) => cell.row));
+        const bBottom = Math.max(...b.cells.map((cell) => cell.row));
+        return bBottom - aBottom;
+      });
+
+    bodies.forEach((body) => {
+      const occupancy = getOccupancyMap(body.id);
+      if (!bodyIntersectsWorld(body, body.id) && canBodyDrop(body, occupancy) && !bodyWouldHitWorld(body, 1, body.id)) {
+        moveBodyDown(body);
+        moved = true;
+      } else if (body.visual && Math.abs(body.visual.visualOffsetY) < 0.05 && Math.abs(body.visual.bounceOffsetY) < 0.02) {
+        triggerSettleBounce(body, -0.12);
+      }
+    });
+
+    guard += 1;
+  }
+}
+
+function trySpawnQueuedBodyInstantly() {
+  ensureQueue();
+  const formula = state.queue.shift();
+  const body = createBody(formula);
+  body.line = getEquationData(formula, body.cells[0]);
+  body.formulaLabel = body.line.label;
+
+  const occupancy = getOccupancyMap();
+  const blockedAtSpawn = body.cells.some((cell) => occupancy.has(positionKey(cell.row, cell.col)));
+  if (blockedAtSpawn || bodyIntersectsWorld(body) || bodyWouldHitWorld(body)) {
+    state.queue.unshift(formula);
+    return false;
+  }
+
+  body.active = false;
+  state.bodies.push(body);
+  ensureQueue();
+  settleInactiveBodies();
+  return true;
+}
+
+function refillWorldAfterClear() {
+  state.refillingWorld = true;
+  statusEl.textContent = "正在補滿盤面...";
+  let spawnedBodies = 0;
+  const maxAttempts = WORLD_COLS * WORLD_ROWS;
+
+  while (spawnedBodies < maxAttempts) {
+    if (!trySpawnQueuedBodyInstantly()) {
+      break;
+    }
+    spawnedBodies += 1;
+  }
+
+  state.refillingWorld = false;
+  return spawnedBodies;
+}
+
 function tickActiveBody() {
   const body = getActiveBody();
   if (!body) {
@@ -849,7 +1054,7 @@ function tickActiveBody() {
   } else {
     body.active = false;
     triggerSettleBounce(body);
-    statusEl.textContent = `${body.formulaLabel} has settled and can now support later bodies.`;
+    statusEl.textContent = `${body.formulaLabel} 已落穩，現在可以支撐後續剛體。`;
     chooseTargetBody();
   }
 
@@ -899,11 +1104,12 @@ function getMinimumRepresentativeCells(body) {
     return 2;
   }
 
-  if (body.line.family === "quadratic") {
-    return 3;
-  }
-
-  if (body.line.family === "circle") {
+  if (
+    body.line.family === "quadratic" ||
+    body.line.family === "circle" ||
+    body.line.family === "exponential" ||
+    body.line.family === "logarithmic"
+  ) {
     return 3;
   }
 
@@ -1016,6 +1222,10 @@ function createRandomCandidate(excludeLabels = new Set(), preferredFamily = null
       formula = buildQuadraticFormula();
     } else if (preferredFamily === "circle") {
       formula = buildCircleFormula();
+    } else if (preferredFamily === "exponential") {
+      formula = buildExponentialFormula();
+    } else if (preferredFamily === "logarithmic") {
+      formula = buildLogarithmicFormula();
     } else if (preferredFamily === "linear") {
       formula = buildLinearFormula();
     } else {
@@ -1049,6 +1259,16 @@ function createRandomCandidate(excludeLabels = new Set(), preferredFamily = null
 }
 
 function chooseTargetBody(force = false) {
+  if (state.refillingWorld) {
+    state.targetBodyId = null;
+    state.targetLine = null;
+    state.targetLabel = "none";
+    state.awaitingAnswer = false;
+    state.highlightedCells = [];
+    state.choices = [];
+    return;
+  }
+
   const settledBodies = state.bodies.filter((body) => !body.active && body.cells.every((cell) => inBounds(cell.row, cell.col)));
   if (settledBodies.length < 4 || (!force && !shouldStartChallenge(settledBodies))) {
     state.targetBodyId = null;
@@ -1132,6 +1352,42 @@ function buildChoices(candidates = null) {
         }
         distractors.push(circleCandidate);
         usedLabels.add(circleCandidate.label);
+      }
+    }
+  }
+
+  if (availableFamilies.includes("exponential")) {
+    const hasExponential = [bestCandidate, ...distractors].some((candidate) => candidate?.line?.family === "exponential");
+    if (!hasExponential) {
+      const exponentialCandidate = createRandomCandidate(usedLabels, "exponential");
+      if (exponentialCandidate) {
+        if (distractors.length >= 3) {
+          const removableIndex = distractors.findIndex((candidate) => candidate.line?.family === "linear");
+          const removed = removableIndex >= 0 ? distractors.splice(removableIndex, 1)[0] : distractors.pop();
+          if (removed) {
+            usedLabels.delete(removed.label);
+          }
+        }
+        distractors.push(exponentialCandidate);
+        usedLabels.add(exponentialCandidate.label);
+      }
+    }
+  }
+
+  if (availableFamilies.includes("logarithmic")) {
+    const hasLogarithmic = [bestCandidate, ...distractors].some((candidate) => candidate?.line?.family === "logarithmic");
+    if (!hasLogarithmic) {
+      const logarithmicCandidate = createRandomCandidate(usedLabels, "logarithmic");
+      if (logarithmicCandidate) {
+        if (distractors.length >= 3) {
+          const removableIndex = distractors.findIndex((candidate) => candidate.line?.family === "linear");
+          const removed = removableIndex >= 0 ? distractors.splice(removableIndex, 1)[0] : distractors.pop();
+          if (removed) {
+            usedLabels.delete(removed.label);
+          }
+        }
+        distractors.push(logarithmicCandidate);
+        usedLabels.add(logarithmicCandidate.label);
       }
     }
   }
@@ -1255,7 +1511,7 @@ function triggerBombEffect(center, radius) {
     maxRadius: radius + 1.4,
     alpha: 0.95,
   };
-  addFloatingText("BOOM", [center], "#5f1b13");
+  addFloatingText("爆炸", [center], "#5f1b13");
 }
 
 function canUseShopTool() {
@@ -1272,14 +1528,14 @@ function clearPendingTool() {
 
 function buyItem(cost, inventoryKey, label) {
   if (state.money < cost) {
-    statusEl.textContent = `Not enough money for ${label}.`;
+    statusEl.textContent = `金錢不足，無法購買${label}。`;
     return;
   }
 
   state.money -= cost;
   state[inventoryKey] += 1;
   addFloatingText(`-${cost}$`, [{ row: 1, col: WORLD_COLS - 3 }], "#8a4d1a");
-  statusEl.textContent = `${label} purchased.`;
+  statusEl.textContent = `已購買${label}。`;
   updateUI();
   drawBoard();
 }
@@ -1313,30 +1569,30 @@ function findBombAtCell(targetCell) {
 
 function armDefuserTool() {
   if (!canUseShopTool()) {
-    statusEl.textContent = "Wait until the current action finishes before using a store tool.";
+    statusEl.textContent = "請先等目前動作結束，再使用商店道具。";
     return;
   }
   if (state.defusers <= 0) {
-    statusEl.textContent = "You do not own a bomb defuser yet.";
+    statusEl.textContent = "你目前沒有拆彈器。";
     return;
   }
 
   const hasBomb = state.bodies.some((body) => body.cells.some((cell) => cell.special === SPECIAL_TYPES.BOMB));
   if (!hasBomb) {
-    statusEl.textContent = "There are no bomb blocks to defuse right now.";
+    statusEl.textContent = "目前盤面上沒有炸彈可拆。";
     return;
   }
 
   if (state.pendingTool?.type === "defuser") {
     clearPendingTool();
-    statusEl.textContent = "Bomb defuser cancelled.";
+    statusEl.textContent = "已取消拆彈器。";
     updateUI();
     drawBoard();
     return;
   }
 
   state.pendingTool = { type: "defuser" };
-  statusEl.textContent = "Bomb defuser armed. Click a bomb block on the board to remove it.";
+  statusEl.textContent = "拆彈器已啟動，請點擊棋盤上的炸彈。";
   updateUI();
   drawBoard();
 }
@@ -1344,7 +1600,7 @@ function armDefuserTool() {
 function deployDefuser(targetCell) {
   const target = findBombAtCell(targetCell);
   if (!target) {
-    statusEl.textContent = "That cell is not a bomb. Click directly on a bomb block.";
+    statusEl.textContent = "你點到的不是炸彈，請直接點炸彈方塊。";
     drawBoard();
     return;
   }
@@ -1352,13 +1608,13 @@ function deployDefuser(targetCell) {
   const { body: targetBody, index: targetIndex, cell } = target;
   state.defusers -= 1;
   state.bombEffectCells = [{ row: cell.row, col: cell.col }];
-  addFloatingText("DEFUSED", [{ row: cell.row, col: cell.col }], "#1f8f67");
+  addFloatingText("拆除", [{ row: cell.row, col: cell.col }], "#1f8f67");
   removeBodyCells(targetBody, [targetIndex]);
   state.lastClearCount = 1;
   state.lastSplitCount = 0;
   clearPendingTool();
-  settleWorld();
-  statusEl.textContent = "Bomb defused safely.";
+  settleWorld({ refill: true });
+  statusEl.textContent = "炸彈已安全拆除。";
 }
 
 function parsePolynomialInput(input) {
@@ -1385,23 +1641,23 @@ function parsePolynomialInput(input) {
 
 function getPolynomialGuideText(coefficients) {
   if (!coefficients || coefficients.length === 0) {
-    return "The 1st number is the highest-power coefficient, and the last number is the constant term.";
+    return "第 1 個數字是最高次項係數，最後 1 個數字是常數項。";
   }
 
   const degree = coefficients.length - 1;
   const labels = coefficients.map((_, index) => {
     const power = degree - index;
     if (power === 0) {
-      return "constant";
+      return "常數項";
     }
     if (power === 1) {
-      return "x term";
+      return "x 項";
     }
-    return `x^${power} term`;
+    return `x^${power} 項`;
   });
 
   return coefficients
-    .map((value, index) => `${index + 1}: ${value || 0} -> ${labels[index]}`)
+    .map((value, index) => `第 ${index + 1} 個：${value || 0} -> ${labels[index]}`)
     .join(" | ");
 }
 
@@ -1498,14 +1754,34 @@ function drawPolynomialCurve(ctx, line, cellSize, padding, yOffset = 0, alpha = 
   ctx.restore();
 }
 
+function getRenderedCurveY(line, x) {
+  if (line.family === "quadratic") {
+    return line.a * (x - line.h) * (x - line.h) + line.k;
+  }
+  if (line.family === "polynomial") {
+    return getPolynomialY(line, x);
+  }
+  if (line.family === "exponential") {
+    return line.a * (line.base ** (x - line.h)) + line.k;
+  }
+  if (line.family === "logarithmic") {
+    const shiftedX = x - line.h;
+    if (shiftedX <= 0) {
+      return null;
+    }
+    return line.a * (Math.log(shiftedX) / Math.log(line.base)) + line.k;
+  }
+  return line.slope * x + line.intercept;
+}
+
 function armPolynomialTool() {
   const mode = getModeConfig();
   if (!canUseShopTool()) {
-    statusEl.textContent = "Wait until the current action finishes before using a store tool.";
+    statusEl.textContent = "請先等目前動作結束，再使用商店道具。";
     return;
   }
   if (!mode.infinitePolynomial && state.polynomialTools <= 0) {
-    statusEl.textContent = "You do not own a polynomial tool yet.";
+    statusEl.textContent = "你目前沒有多項式工具。";
     return;
   }
 
@@ -1513,7 +1789,7 @@ function armPolynomialTool() {
     clearPendingTool();
     state.effectLine = null;
     state.effectCells = [];
-    statusEl.textContent = "Polynomial tool cancelled.";
+    statusEl.textContent = "已取消多項式工具。";
     updateUI();
     drawBoard();
     return;
@@ -1533,8 +1809,8 @@ function armPolynomialTool() {
   }
   setElementText(polynomialGuideEl, getPolynomialGuideText([]));
   statusEl.textContent = mode.id === "self_formula"
-    ? "Enter coefficients in Options, then press Arm."
-    : "Enter coefficients in the shop panel, then press Arm.";
+    ? "請在選項區輸入係數，再按下發動。"
+    : "請在商店面板輸入係數，再按下發動。";
   updateUI();
   drawBoard();
 }
@@ -1544,7 +1820,7 @@ function confirmPolynomialTool() {
   const raw = polynomialInputEl ? polynomialInputEl.value : "";
   const parsed = parsePolynomialInput(raw);
   if (!parsed) {
-    statusEl.textContent = "Invalid polynomial. Use 2 to 4 coefficients like 1,0,-2,1.";
+    statusEl.textContent = "多項式格式不正確，請輸入 2 到 4 個係數，例如 1,0,-2,1。";
     if (polynomialInputEl) {
       polynomialInputEl.focus();
       polynomialInputEl.select();
@@ -1577,10 +1853,10 @@ function confirmPolynomialTool() {
     if (removed > 0) {
       state.score += Math.max(18, removed * 3);
       statusEl.textContent = mode.id === "self_formula"
-        ? `${thickLine.label} executed and removed ${removed} cells.`
-        : `${thickLine.label} executed safely and removed ${removed} cells.`;
+        ? `${thickLine.label} 已執行，清掉了 ${removed} 格。`
+        : `${thickLine.label} 已安全執行，清掉了 ${removed} 格。`;
     } else {
-      statusEl.textContent = `${thickLine.label} executed, but it did not clear any cells.`;
+      statusEl.textContent = `${thickLine.label} 已執行，但沒有清到任何格子。`;
     }
     window.setTimeout(() => {
       state.explosionCells = [];
@@ -1633,8 +1909,8 @@ function showComboBanner() {
     return;
   }
 
-  const blastText = state.streak >= 5 ? "MEGA BLAST" : state.streak >= 3 ? "CHAIN BLAST" : "COMBO";
-  comboBannerEl.textContent = `${state.streak} HIT ${blastText}`;
+  const blastText = state.streak >= 5 ? "超級爆發" : state.streak >= 3 ? "連鎖爆發" : "連擊";
+  comboBannerEl.textContent = `${state.streak} 連擊 ${blastText}`;
   comboBannerEl.classList.add("show");
 
   if (state.comboBannerTimer) {
@@ -1666,12 +1942,22 @@ function showUnlockBanner(text) {
 function checkUnlockMilestones() {
   if (!state.unlocksShown.quadratic && state.score >= QUADRATIC_UNLOCK_SCORE) {
     state.unlocksShown.quadratic = true;
-    showUnlockBanner("Quadratic equations unlocked");
+    showUnlockBanner("已解鎖二次函數");
   }
 
   if (!state.unlocksShown.circle && state.score >= CIRCLE_UNLOCK_SCORE) {
     state.unlocksShown.circle = true;
-    showUnlockBanner("Circle equations unlocked");
+    showUnlockBanner("已解鎖圓形方程式");
+  }
+
+  if (!state.unlocksShown.exponential && state.score >= EXPONENTIAL_UNLOCK_SCORE) {
+    state.unlocksShown.exponential = true;
+    showUnlockBanner("已解鎖指數函數");
+  }
+
+  if (!state.unlocksShown.logarithmic && state.score >= LOGARITHMIC_UNLOCK_SCORE) {
+    state.unlocksShown.logarithmic = true;
+    showUnlockBanner("已解鎖對數函數");
   }
 }
 
@@ -1680,14 +1966,14 @@ function renderLeaderboard() {
     return;
   }
   if (leaderboardTitleEl) {
-    leaderboardTitleEl.textContent = `${getModeConfig().name} Leaderboard`;
+    leaderboardTitleEl.textContent = `${getModeConfig().name} 排行榜`;
   }
 
   leaderboardListEl.innerHTML = "";
   if (state.leaderboard.length === 0) {
     const empty = document.createElement("div");
     empty.className = "leaderboard-empty";
-    empty.textContent = "No saved scores yet.";
+    empty.textContent = "目前還沒有儲存分數。";
     leaderboardListEl.appendChild(empty);
     return;
   }
@@ -1731,7 +2017,7 @@ function renderModes() {
       ensureQueue();
       updateUI();
       drawBoard();
-      showUnlockBanner(`${mode.name} mode`);
+      showUnlockBanner(`已切換到${mode.name}`);
     });
     modeListEl.appendChild(button);
   });
@@ -1748,12 +2034,12 @@ function refreshModeButtons() {
 
 function saveCurrentRunToLeaderboard() {
   if (state.scoreSavedThisRun) {
-    setElementText(saveScoreStatusEl, "This run has already been saved.");
+    setElementText(saveScoreStatusEl, "這一局已經儲存過了。");
     return;
   }
 
   const rawName = playerNameInputEl ? playerNameInputEl.value.trim() : "";
-  const name = rawName || "Player";
+  const name = rawName || "玩家";
   safeStorageSet(STORAGE_KEYS.playerName, name);
 
   state.leaderboard.push({
@@ -1779,7 +2065,7 @@ function saveCurrentRunToLeaderboard() {
   saveLeaderboard();
   renderLeaderboard();
   state.scoreSavedThisRun = true;
-  setElementText(saveScoreStatusEl, "Score saved to local leaderboard.");
+  setElementText(saveScoreStatusEl, "分數已儲存到本機排行榜。");
 }
 
 function stopModeTimer() {
@@ -1838,7 +2124,7 @@ function updateModeLayout() {
   }
 
   if (cancelPolynomialToolButton) {
-    cancelPolynomialToolButton.textContent = mode.id === "self_formula" ? "Clear" : "Cancel";
+    cancelPolynomialToolButton.textContent = mode.id === "self_formula" ? "清除" : "取消";
   }
 }
 
@@ -1972,7 +2258,7 @@ function rebuildBodyFromGroup(originalBody, group) {
 
 function executeLine(line, options = {}) {
   if (!line) {
-    statusEl.textContent = "There is no settled body to cut right now.";
+    statusEl.textContent = "目前沒有可切割的穩定剛體。";
     return 0;
   }
 
@@ -2018,11 +2304,11 @@ function executeLine(line, options = {}) {
         if (config.safeBombs || (!wasDirectHit && config.safeExplosionBombs)) {
           removedIndices.push(index);
           state.bombEffectCells.push({ row: cell.row, col: cell.col });
-          addFloatingText("SAFE HIT", [{ row: cell.row, col: cell.col }], "#1f8f67");
+          addFloatingText("安全命中", [{ row: cell.row, col: cell.col }], "#1f8f67");
           safelyHitBombs.push({ row: cell.row, col: cell.col });
           return;
         }
-        showGameOver("You hit a bomb block. That run is over.");
+        showGameOver("你碰到了炸彈方塊，本局結束。");
         hitBomb = true;
         return;
       }
@@ -2116,7 +2402,7 @@ function executeLine(line, options = {}) {
       executeBombExplosion(bombCell, config.bombBlastRadius);
     });
   }
-  settleWorld();
+  settleWorld({ refill: removedCells > 0 });
   return removedCells;
 }
 
@@ -2188,34 +2474,27 @@ function advanceBombs() {
   bombsToExplode.forEach((center) => {
     executeBombExplosion(center);
   });
+
+  if (bombsToExplode.length > 0) {
+    settleWorld({ refill: true });
+  }
 }
 
-function settleWorld() {
-  let moved = true;
-  let guard = 0;
+function settleWorld(options = {}) {
+  const config = {
+    refill: false,
+    ...options,
+  };
 
-  while (moved && guard < WORLD_ROWS * 4) {
-    moved = false;
-    const bodies = state.bodies
-      .filter((body) => !body.active)
-      .slice()
-      .sort((a, b) => {
-        const aBottom = Math.max(...a.cells.map((cell) => cell.row));
-        const bBottom = Math.max(...b.cells.map((cell) => cell.row));
-        return bBottom - aBottom;
-      });
+  settleInactiveBodies();
 
-    bodies.forEach((body) => {
-      const occupancy = getOccupancyMap(body.id);
-      if (!bodyIntersectsWorld(body, body.id) && canBodyDrop(body, occupancy) && !bodyWouldHitWorld(body, 1, body.id)) {
-        moveBodyDown(body);
-        moved = true;
-      } else if (body.visual && Math.abs(body.visual.visualOffsetY) < 0.05 && Math.abs(body.visual.bounceOffsetY) < 0.02) {
-        triggerSettleBounce(body, -0.12);
-      }
-    });
-
-    guard += 1;
+  if (config.refill) {
+    const spawnedBodies = refillWorldAfterClear();
+    if (spawnedBodies > 0) {
+      statusEl.textContent = `清除後已下落補位，並額外補進 ${spawnedBodies} 個新剛體。`;
+    } else {
+      statusEl.textContent = "清除後已下落補位，盤面重新穩定。";
+    }
   }
 
   chooseTargetBody();
@@ -2225,7 +2504,7 @@ function settleWorld() {
 
 function handleChoice(choice, button) {
   if (!state.targetLine || !choice.line) {
-    statusEl.textContent = "There is no available target body yet. Drop and settle more pieces first.";
+    statusEl.textContent = "目前還沒有可作答的目標，先讓更多剛體落穩。";
     return;
   }
 
@@ -2267,13 +2546,13 @@ function handleChoice(choice, button) {
       showComboBanner();
       statusEl.textContent = removed > 0
         ? state.explosionCells.length > 0
-          ? `Correct. ${choice.label} removed ${removed} cells and triggered a combo blast.`
-          : `Correct. ${choice.label} was the best line and removed ${removed} cells.`
-        : `Correct choice, but this shot did not clear any cells.`;
+          ? `答對了。${choice.label} 清掉了 ${removed} 格，並觸發連擊爆炸。`
+          : `答對了。${choice.label} 是最佳解，清掉了 ${removed} 格。`
+        : "答對了，但這次沒有清到任何格子。";
     } else {
       showComboBanner();
       state.score = Math.max(0, state.score - 5);
-      statusEl.textContent = `Wrong target, but ${choice.label} still executed and removed ${removed} cells.`;
+      statusEl.textContent = `選錯了，但 ${choice.label} 仍然執行，清掉了 ${removed} 格。`;
     }
 
     state.effectLine = null;
@@ -2341,7 +2620,7 @@ function handleBoardClick(event) {
 
   const cell = getBoardCellFromPointer(event);
   if (!cell) {
-    statusEl.textContent = "Click inside the board to deploy the selected tool.";
+    statusEl.textContent = "請在棋盤內點一下，施放目前選中的道具。";
     return;
   }
 
@@ -2359,7 +2638,7 @@ function renderChoices() {
   if (getModeConfig().choiceMode === "self_formula_only") {
     const note = document.createElement("div");
     note.className = "choice";
-    note.innerHTML = "<strong>Self Formula Mode</strong><span>No multiple-choice answers here. Use your own equation from the store.</span>";
+    note.innerHTML = "<strong>自訂公式模式</strong><span>這個模式沒有選擇題，請直接輸入你自己的方程式。</span>";
     choicesEl.appendChild(note);
     return;
   }
@@ -2367,7 +2646,7 @@ function renderChoices() {
   if (state.choices.length === 0) {
     const empty = document.createElement("div");
     empty.className = "choice";
-    empty.innerHTML = "<strong>No target yet</strong><span>Let at least one body settle first.</span>";
+    empty.innerHTML = "<strong>尚未出題</strong><span>先讓至少一個剛體落穩，再開始作答。</span>";
     choicesEl.appendChild(empty);
     return;
   }
@@ -2380,7 +2659,7 @@ function renderChoices() {
       `<span class="choice-badge">${String.fromCharCode(65 + index)}</span>`,
       `<span class="choice-copy">`,
       `<strong>${choice.label}</strong>`,
-      `<span>This line will execute even if wrong. Current clear: ${choice.clearCount} cells.</span>`,
+      `<span>就算答錯也會執行這條線。目前可清除：${choice.clearCount} 格。</span>`,
       `</span>`,
     ].join("");
     button.addEventListener("click", () => handleChoice(choice, button));
@@ -2401,11 +2680,15 @@ function renderQueue() {
     const item = document.createElement("div");
     item.className = "queue-item";
     const detail = formula.family === "quadratic"
-      ? `${formula.length} cells, quadratic fit`
+      ? `${formula.length} 格，二次函數`
       : formula.family === "circle"
-        ? `${formula.length} cells, circle fit`
-        : `${formula.length} cells, line step (${formula.stepX}, ${formula.stepY})`;
-    item.innerHTML = `<strong>${index === 0 ? "Next" : `Queue ${index}`}: ${formula.family}</strong><span>${detail}</span>`;
+        ? `${formula.length} 格，圓形方程式`
+        : formula.family === "exponential"
+          ? `${formula.length} 格，指數函數`
+          : formula.family === "logarithmic"
+            ? `${formula.length} 格，對數函數`
+            : `${formula.length} 格，直線步進 (${formula.stepX}, ${formula.stepY})`;
+    item.innerHTML = `<strong>${index === 0 ? "下一個" : `隊列 ${index}`}: ${getFamilyDisplayName(formula.family)}</strong><span>${detail}</span>`;
     queueEl.appendChild(item);
   });
 }
@@ -2431,7 +2714,7 @@ function updateUI() {
   setElementText(comboCountEl, state.streak);
   setElementText(activeLabelEl, activeBody ? activeBody.formulaLabel : "none");
   setElementText(supportedCountEl, supportedCount);
-  setElementText(splitResultEl, `${state.lastClearCount} cells / ${state.lastSplitCount} pieces`);
+  setElementText(splitResultEl, `${state.lastClearCount} 格 / ${state.lastSplitCount} 塊`);
   setElementText(queueCountEl, state.queue.length);
   if (buyDefuserButton) {
     buyDefuserButton.disabled = !mode.showDefuser || state.money < DEFUSER_COST || state.gameOver;
@@ -2439,7 +2722,7 @@ function updateUI() {
   }
   if (useDefuserButton) {
     useDefuserButton.disabled = !mode.showDefuser || state.defusers <= 0 || !canUseShopTool();
-    useDefuserButton.textContent = state.pendingTool?.type === "defuser" ? "Cancel" : "Use";
+    useDefuserButton.textContent = state.pendingTool?.type === "defuser" ? "取消" : "使用";
     useDefuserButton.hidden = !mode.showDefuser;
   }
   if (buyPolynomialToolButton) {
@@ -2449,9 +2732,9 @@ function updateUI() {
   if (usePolynomialToolButton) {
     const availablePolynomialTools = mode.infinitePolynomial ? 1 : state.polynomialTools;
     usePolynomialToolButton.disabled = availablePolynomialTools <= 0 || !canUseShopTool();
-    usePolynomialToolButton.textContent = state.pendingTool?.type === "polynomial" ? "Cancel" : "Use";
+    usePolynomialToolButton.textContent = state.pendingTool?.type === "polynomial" ? "取消" : "使用";
   }
-  setElementText(polynomialToolCountEl, mode.infinitePolynomial ? "INF" : state.polynomialTools);
+  setElementText(polynomialToolCountEl, mode.infinitePolynomial ? "無限" : state.polynomialTools);
   setElementText(modeTimerEl, state.modeTimer);
 
   checkUnlockMilestones();
@@ -2764,13 +3047,10 @@ function drawBoard() {
           drawPolynomialCurve(ctx, state.effectLine, cellSize, padding, -state.effectLine.thickness, 0.42);
         } else {
           for (let x = -COORD_MAX_X - 0.5; x <= COORD_MAX_X + 0.5; x += 0.25) {
-            let y;
-            if (state.effectLine.family === "quadratic") {
-              y = state.effectLine.a * (x - state.effectLine.h) * (x - state.effectLine.h) + state.effectLine.k;
-            } else if (state.effectLine.family === "polynomial") {
-              y = getPolynomialY(state.effectLine, x);
-            } else {
-              y = state.effectLine.slope * x + state.effectLine.intercept;
+            const y = getRenderedCurveY(state.effectLine, x);
+            if (!Number.isFinite(y)) {
+              started = false;
+              continue;
             }
 
             const canvasX = toCanvasX(x + COORD_MAX_X, cellSize, padding);
@@ -2879,8 +3159,8 @@ if (toggleSimButton) {
       return;
     }
     state.paused = !state.paused;
-    toggleSimButton.textContent = state.paused ? "Resume" : "Pause";
-    setElementText(statusEl, state.paused ? "Simulation paused." : "Simulation running.");
+    toggleSimButton.textContent = state.paused ? "繼續" : "暫停";
+    setElementText(statusEl, state.paused ? "模擬已暫停。" : "模擬進行中。");
   });
 }
 
@@ -2916,7 +3196,7 @@ if (dismissTutorialButton) {
 }
 
 buyDefuserButton.addEventListener("click", () => {
-  buyItem(DEFUSER_COST, "defusers", "Bomb defuser");
+  buyItem(DEFUSER_COST, "defusers", "拆彈器");
 });
 
 useDefuserButton.addEventListener("click", () => {
@@ -2926,7 +3206,7 @@ useDefuserButton.addEventListener("click", () => {
 });
 
 buyPolynomialToolButton.addEventListener("click", () => {
-  buyItem(POLYNOMIAL_TOOL_COST, "polynomialTools", "Polynomial tool");
+  buyItem(POLYNOMIAL_TOOL_COST, "polynomialTools", "多項式工具");
 });
 
 usePolynomialToolButton.addEventListener("click", () => {
@@ -2950,7 +3230,7 @@ if (cancelPolynomialToolButton) {
       setElementText(polynomialGuideEl, getPolynomialGuideText([]));
       state.effectLine = null;
       state.effectCells = [];
-      setElementText(statusEl, "Self Formula mode: type your own equation in Options, then press Arm.");
+      setElementText(statusEl, "自訂公式模式：在選項區輸入你的方程式，再按下發動。");
       updateUI();
       drawBoard();
       return;
@@ -2958,7 +3238,7 @@ if (cancelPolynomialToolButton) {
     clearPendingTool();
     state.effectLine = null;
     state.effectCells = [];
-    setElementText(statusEl, "Polynomial tool cancelled.");
+    setElementText(statusEl, "已取消多項式工具。");
     updateUI();
     drawBoard();
   });

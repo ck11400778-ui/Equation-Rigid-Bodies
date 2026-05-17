@@ -573,41 +573,122 @@ button.secondary,
 @media (max-width: 720px) {
   .layout {
     width: min(100% - 14px, 1200px);
-    margin-top: 10px;
-    gap: 14px;
+    margin-top: 8px;
+    gap: 10px;
   }
 
   .board-panel,
   .card {
-    padding: 14px;
+    padding: 12px;
+    border-radius: 20px;
   }
 
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
+  }
+
+  .stat {
+    padding: 10px 8px;
+    border-radius: 14px;
+  }
+
+  .stat span {
+    font-size: 0.72rem;
+  }
+
+  .stat strong {
+    font-size: 1.05rem;
   }
 
   .board-shell {
-    margin-top: 12px;
-    padding: 8px;
-    border-radius: 20px;
+    margin-top: 10px;
+    padding: 6px;
+    border-radius: 16px;
+    display: flex;
+    justify-content: center;
+  }
+
+  #board {
+    width: min(100%, 78vw);
+    max-height: 52vh;
+    border-radius: 14px;
   }
 
   .quiz-panel {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 10px;
+  }
+
+  .mode-card {
+    order: 4;
+  }
+
+  .store-card {
+    order: 3;
+  }
+
+  .leaderboard-card {
+    order: 5;
+  }
+
+  .tutorial-card {
+    order: 6;
+  }
+
+  .target-card h3,
+  .store-card h3,
+  .mode-card h3,
+  .leaderboard-card h3,
+  .tutorial-card h3 {
+    margin-bottom: 8px;
+    font-size: 1rem;
   }
 
   .choice {
-    padding: 10px 12px;
-    border-radius: 22px;
+    padding: 9px 10px;
+    border-radius: 18px;
+    align-items: flex-start;
   }
 
   .choice-badge {
-    width: 42px;
-    height: 42px;
-    flex-basis: 42px;
-    font-size: 0.95rem;
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+    font-size: 0.88rem;
+  }
+
+  .choice-copy strong {
+    font-size: 0.93rem;
+  }
+
+  .choice-copy span {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .feedback,
+  .polynomial-help,
+  .polynomial-guide,
+  .mode-button span,
+  .store-copy span,
+  .store-owned,
+  .leaderboard-name {
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .mode-button,
+  .store-item,
+  .leaderboard-entry {
+    padding: 11px 12px;
+    border-radius: 14px;
+  }
+
+  .polynomial-panel {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 14px;
   }
 
   .store-actions,
@@ -629,19 +710,22 @@ button.secondary,
   .save-score-row input,
   button {
     width: 100%;
+    min-height: 42px;
   }
 
   .combo-banner {
     top: 12px;
     width: calc(100% - 24px);
     text-align: center;
-    padding: 12px 16px;
+    padding: 10px 14px;
+    font-size: 1.05rem;
   }
 
   .unlock-banner {
-    top: 66px;
+    top: 56px;
     width: calc(100% - 32px);
     text-align: center;
+    font-size: 0.88rem;
   }
 
   .result-grid {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Equation Rigid Bodies</title>
+    <title>方程式剛體消消樂</title>
     <meta name="color-scheme" content="light">
     <link rel="stylesheet" href="styles.css">
   </head>
@@ -12,29 +12,29 @@
   <div id="unlockBanner" class="unlock-banner" aria-live="polite"></div>
   <div id="gameOverOverlay" class="game-over-overlay" hidden>
     <div class="game-over-card">
-      <p class="eyebrow">Run Ended</p>
-      <h2>Bomb Hit</h2>
-      <p id="gameOverText">You triggered a bomb block.</p>
+      <p class="eyebrow">本局結束</p>
+      <h2>炸彈引爆</h2>
+      <p id="gameOverText">你碰到了炸彈方塊。</p>
       <div class="result-grid">
         <div class="result-stat">
-          <span>Score</span>
+          <span>分數</span>
           <strong id="resultScore">0</strong>
         </div>
         <div class="result-stat">
-          <span>Money</span>
+          <span>金錢</span>
           <strong id="resultMoney">0</strong>
         </div>
         <div class="result-stat">
-          <span>Best</span>
+          <span>最高分</span>
           <strong id="resultBest">0</strong>
         </div>
       </div>
       <div class="save-score-row">
-        <input id="playerNameInput" type="text" maxlength="16" placeholder="Your name">
-        <button id="saveScore" type="button">Save Score</button>
+        <input id="playerNameInput" type="text" maxlength="16" placeholder="輸入名字">
+        <button id="saveScore" type="button">儲存分數</button>
       </div>
       <p id="saveScoreStatus" class="feedback compact"></p>
-      <button id="restartGame" type="button">Restart</button>
+      <button id="restartGame" type="button">重新開始</button>
     </div>
   </div>
   <main class="layout">
@@ -42,99 +42,99 @@
       <div class="panel-head">
         <div class="stats">
           <div class="stat">
-            <span>Score</span>
+            <span>分數</span>
             <strong id="score">0</strong>
           </div>
           <div class="stat money-stat">
-            <span>Money</span>
+            <span>金錢</span>
             <strong id="money">0</strong>
           </div>
           <div class="stat">
-            <span>Best</span>
+            <span>最高分</span>
             <strong id="bestScore">0</strong>
           </div>
           <div class="stat" id="timerStat" hidden>
-            <span>Time</span>
+            <span>時間</span>
             <strong id="modeTimer">60</strong>
           </div>
         </div>
       </div>
 
       <div class="board-shell">
-        <canvas id="board" width="900" height="900" aria-label="Equation rigid body board"></canvas>
+        <canvas id="board" width="900" height="900" aria-label="方程式剛體棋盤"></canvas>
       </div>
     </section>
 
     <aside class="quiz-panel">
       <div class="card mode-card">
-        <h3>Modes</h3>
+        <h3>模式</h3>
         <div id="modeList" class="mode-list"></div>
       </div>
 
       <div id="tutorialCard" class="card tutorial-card">
         <div class="card-head">
-          <h3>Quick Start</h3>
-          <button id="dismissTutorial" type="button" class="secondary small-button">Hide</button>
+          <h3>快速上手</h3>
+          <button id="dismissTutorial" type="button" class="secondary small-button">隱藏</button>
         </div>
-        <p class="feedback compact">Wait for the board to settle, then pick the line that clears the most cells.</p>
-        <p class="feedback compact">Coins give money for tools. Normal hits on bombs end the run, but store tools can safely remove them.</p>
-        <p class="feedback compact">Quadratic and circle choices unlock as your score rises.</p>
+        <p class="feedback compact">等盤面穩定後，選出能清掉最多格子的方程式。</p>
+        <p class="feedback compact">金幣可以拿來買道具。一般命中炸彈會結束本局，但商店道具可以安全拆除。</p>
+        <p class="feedback compact">隨著分數提升，會陸續解鎖二次、圓形、指數與對數題型。</p>
       </div>
 
       <div class="card target-card">
-        <h3>Options</h3>
+        <h3>選項</h3>
         <div id="choices" class="choices"></div>
         <div id="selfFormulaMount" class="self-formula-mount"></div>
         <p id="status" class="feedback">
-          Wait for the world to become still, then choose a line or use a tool from the shop.
+          等盤面靜止後，選一條方程式，或使用商店中的道具。
         </p>
       </div>
 
       <div class="card store-card">
-        <h3>Store</h3>
+        <h3>商店</h3>
         <p class="feedback">
-          Spend money on emergency tools. Bomb tools remove a live bomb, and polynomial tools let you enter your own curve.
+          花錢購買救場道具。拆彈工具能安全拆掉炸彈，自訂多項式工具可以讓你自己輸入曲線。
         </p>
         <div class="store-list">
           <div class="store-item">
             <div class="store-copy">
-              <strong>Bomb Defuser</strong>
-              <span>Cost: $30. Removes one bomb block from the board.</span>
+              <strong>拆彈器</strong>
+              <span>價格：$30。可從盤面上安全移除一顆炸彈。</span>
             </div>
             <div class="store-actions">
-              <span class="store-owned">Owned: <strong id="defuserCount">0</strong></span>
+              <span class="store-owned">持有：<strong id="defuserCount">0</strong></span>
               <div class="store-buttons">
-                <button id="buyDefuser" type="button" class="secondary">Buy</button>
-                <button id="useDefuser" type="button" class="secondary">Use</button>
+                <button id="buyDefuser" type="button" class="secondary">購買</button>
+                <button id="useDefuser" type="button" class="secondary">使用</button>
               </div>
             </div>
           </div>
           <div id="polynomialStoreCard" class="store-item">
             <div class="store-copy">
-              <strong>Polynomial Tool</strong>
-              <span>Cost: $45. Fires one safe thick curve, pays extra for bomb hits, and doubles coin earnings.</span>
+              <strong>多項式工具</strong>
+              <span>價格：$45。發射一條安全的粗曲線，命中炸彈可額外賺錢，金幣收益也會加倍。</span>
             </div>
             <div class="store-actions">
-              <span class="store-owned">Owned: <strong id="polynomialToolCount">0</strong></span>
+              <span class="store-owned">持有：<strong id="polynomialToolCount">0</strong></span>
               <div class="store-buttons">
-                <button id="buyPolynomialTool" type="button" class="secondary">Buy</button>
-                <button id="usePolynomialTool" type="button" class="secondary">Use</button>
+                <button id="buyPolynomialTool" type="button" class="secondary">購買</button>
+                <button id="usePolynomialTool" type="button" class="secondary">使用</button>
               </div>
             </div>
             <div id="polynomialPanel" class="polynomial-panel" hidden>
-              <label class="polynomial-label" for="polynomialInput">Coefficients</label>
+              <label class="polynomial-label" for="polynomialInput">係數</label>
               <input id="polynomialInput" class="polynomial-input" type="text" placeholder="1,0,-2,1">
-              <p class="polynomial-help">Fill from highest degree to constant.</p>
-              <p class="polynomial-help">Your typed formula is the final formula. It no longer shifts after input.</p>
-              <p class="polynomial-help">A live preview appears on the board while you type, and the curve clears one band wider than normal.</p>
-              <p class="polynomial-help">Safe bomb hits do not end the game. Each bomb also gives bonus money and a small blast.</p>
-              <p class="polynomial-help">`3,-4` means `y = 3x - 4`.</p>
-              <p class="polynomial-help">`1,-2,1` means `y = x^2 - 2x + 1`.</p>
-              <p class="polynomial-help">`1,0,-2,1` means `y = x^3 - 2x + 1`.</p>
-              <p id="polynomialGuide" class="polynomial-guide">The 1st number is the highest-power coefficient, and the last number is the constant term.</p>
+              <p class="polynomial-help">請從最高次項一路填到常數項。</p>
+              <p class="polynomial-help">你輸入的公式就是最後施放的公式，輸入後不會再平移。</p>
+              <p class="polynomial-help">輸入時棋盤上會即時預覽，並且這條曲線會比一般判定再粗一圈。</p>
+              <p class="polynomial-help">安全命中炸彈不會結束遊戲，每顆炸彈還會給額外金錢和小範圍爆炸。</p>
+              <p class="polynomial-help">`3,-4` 代表 `y = 3x - 4`。</p>
+              <p class="polynomial-help">`1,-2,1` 代表 `y = x^2 - 2x + 1`。</p>
+              <p class="polynomial-help">`1,0,-2,1` 代表 `y = x^3 - 2x + 1`。</p>
+              <p id="polynomialGuide" class="polynomial-guide">第 1 個數字是最高次項係數，最後 1 個數字是常數項。</p>
               <div class="store-buttons">
-                <button id="confirmPolynomialTool" type="button" class="secondary">Arm</button>
-                <button id="cancelPolynomialTool" type="button" class="secondary">Cancel</button>
+                <button id="confirmPolynomialTool" type="button" class="secondary">發動</button>
+                <button id="cancelPolynomialTool" type="button" class="secondary">取消</button>
               </div>
             </div>
           </div>
@@ -142,7 +142,7 @@
       </div>
 
       <div class="card leaderboard-card">
-        <h3 id="leaderboardTitle">Leaderboard</h3>
+        <h3 id="leaderboardTitle">排行榜</h3>
         <div id="leaderboardList" class="leaderboard-list"></div>
       </div>
     </aside>
