@@ -1,4 +1,4 @@
 window.EQUATION_RB_SUPABASE_CONFIG = {
-  url: "",
-  anonKey: "",
+  url: "https://vbvdcumhlqeynlewlekt.supabase.co",
+  anonKey: "sb_publishable_3fj50aDIVWtDTLzRiiW67g_NcU4cWgO",
 };
