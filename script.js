@@ -168,8 +168,10 @@ const state = {
   streak: 0,
   queue: [],
   targetBodyId: null,
+  targetFamily: null,
   targetLine: null,
   targetLabel: "none",
+  familyCycleIndex: 0,
   choices: [],
   paused: false,
   lastSplitCount: 0,
@@ -525,8 +527,10 @@ function resetState() {
   state.streak = 0;
   state.queue = [];
   state.targetBodyId = null;
+  state.targetFamily = null;
   state.targetLine = null;
   state.targetLabel = "none";
+  state.familyCycleIndex = 0;
   state.choices = [];
   state.paused = false;
   state.lastSplitCount = 0;
@@ -1270,6 +1274,45 @@ function getVisibleLineCandidates() {
     .sort((a, b) => b.clearCount - a.clearCount || b.length - a.length || (a.bodyId ?? 0) - (b.bodyId ?? 0));
 }
 
+function getCandidatesByFamily() {
+  const families = new Map();
+  getVisibleLineCandidates().forEach((candidate) => {
+    const family = candidate.line?.family;
+    if (!family) {
+      return;
+    }
+    if (!families.has(family)) {
+      families.set(family, []);
+    }
+    families.get(family).push(candidate);
+  });
+
+  families.forEach((candidates, family) => {
+    families.set(
+      family,
+      candidates.slice().sort((a, b) => b.clearCount - a.clearCount || b.length - a.length || (a.bodyId ?? 0) - (b.bodyId ?? 0))
+    );
+  });
+
+  return families;
+}
+
+function getSelectableFamilies(candidatesByFamily) {
+  return getAvailableFamilies().filter((family) => (candidatesByFamily.get(family)?.length || 0) > 0);
+}
+
+function chooseChallengeFamily(candidatesByFamily) {
+  const selectableFamilies = getSelectableFamilies(candidatesByFamily);
+  if (selectableFamilies.length === 0) {
+    return null;
+  }
+
+  const index = state.familyCycleIndex % selectableFamilies.length;
+  const family = selectableFamilies[index];
+  state.familyCycleIndex = (state.familyCycleIndex + 1) % selectableFamilies.length;
+  return family;
+}
+
 function createRandomCandidate(excludeLabels = new Set(), preferredFamily = null) {
   let attempts = 0;
 
@@ -1319,6 +1362,7 @@ function createRandomCandidate(excludeLabels = new Set(), preferredFamily = null
 function chooseTargetBody(force = false) {
   if (state.refillingWorld) {
     state.targetBodyId = null;
+    state.targetFamily = null;
     state.targetLine = null;
     state.targetLabel = "none";
     state.awaitingAnswer = false;
@@ -1330,6 +1374,7 @@ function chooseTargetBody(force = false) {
   const settledBodies = state.bodies.filter((body) => !body.active && body.cells.every((cell) => inBounds(cell.row, cell.col)));
   if (settledBodies.length < 4 || (!force && !shouldStartChallenge(settledBodies))) {
     state.targetBodyId = null;
+    state.targetFamily = null;
     state.targetLine = null;
     state.targetLabel = "none";
     state.awaitingAnswer = false;
@@ -1338,20 +1383,24 @@ function chooseTargetBody(force = false) {
     return;
   }
 
-  const candidates = getVisibleLineCandidates();
+  const candidatesByFamily = getCandidatesByFamily();
+  const targetFamily = chooseChallengeFamily(candidatesByFamily);
+  const candidates = targetFamily ? candidatesByFamily.get(targetFamily) || [] : [];
   const candidate = candidates[0] || null;
   state.targetBodyId = candidate ? candidate.bodyId : null;
+  state.targetFamily = candidate ? targetFamily : null;
   state.targetLine = candidate ? candidate.line : null;
-  state.targetLabel = candidate ? candidate.label : "none";
+  state.targetLabel = candidate ? `${getFamilyDisplayName(targetFamily)}：${candidate.label}` : "none";
   state.awaitingAnswer = Boolean(candidate);
   if (state.selectedMode === "bomb_timer" && candidate && !state.modeTimerStarted) {
     state.modeTimerStarted = true;
   }
   state.highlightedCells = candidate ? getCellsHitByLine(candidate.line) : [];
-  buildChoices(candidates);
+  buildChoices(candidates, targetFamily);
 
   if (state.choices.length === 0 || !candidate) {
     state.targetBodyId = null;
+    state.targetFamily = null;
     state.targetLine = null;
     state.targetLabel = "none";
     state.awaitingAnswer = false;
@@ -1359,7 +1408,7 @@ function chooseTargetBody(force = false) {
   }
 }
 
-function buildChoices(candidates = null) {
+function buildChoices(candidates = null, preferredFamily = null) {
   if (getModeConfig().choiceMode === "self_formula_only") {
     state.choices = [];
     state.highlightedCells = [];
@@ -1372,86 +1421,15 @@ function buildChoices(candidates = null) {
     return;
   }
 
-  const rankedCandidates = candidates || getVisibleLineCandidates();
+  const targetFamily = preferredFamily || state.targetFamily;
+  const rankedCandidates = candidates || (targetFamily ? getCandidatesByFamily().get(targetFamily) || [] : []);
   const bestCandidate = rankedCandidates[0];
   const distractors = shuffle(rankedCandidates.slice(1)).slice(0, 3);
   const usedLabels = new Set(bestCandidate ? [bestCandidate.label] : []);
   distractors.forEach((candidate) => usedLabels.add(candidate.label));
 
-  const availableFamilies = getAvailableFamilies();
-  if (availableFamilies.includes("quadratic")) {
-    const hasQuadratic = [bestCandidate, ...distractors].some((candidate) => candidate?.line?.family === "quadratic");
-    if (!hasQuadratic) {
-      const quadraticCandidate = createRandomCandidate(usedLabels, "quadratic");
-      if (quadraticCandidate) {
-        if (distractors.length >= 3) {
-          const removed = distractors.pop();
-          if (removed) {
-            usedLabels.delete(removed.label);
-          }
-        }
-        distractors.push(quadraticCandidate);
-        usedLabels.add(quadraticCandidate.label);
-      }
-    }
-  }
-
-  if (availableFamilies.includes("circle")) {
-    const hasCircle = [bestCandidate, ...distractors].some((candidate) => candidate?.line?.family === "circle");
-    if (!hasCircle) {
-      const circleCandidate = createRandomCandidate(usedLabels, "circle");
-      if (circleCandidate) {
-        if (distractors.length >= 3) {
-          const removableIndex = distractors.findIndex((candidate) => candidate.line?.family === "linear");
-          const removed = removableIndex >= 0 ? distractors.splice(removableIndex, 1)[0] : distractors.pop();
-          if (removed) {
-            usedLabels.delete(removed.label);
-          }
-        }
-        distractors.push(circleCandidate);
-        usedLabels.add(circleCandidate.label);
-      }
-    }
-  }
-
-  if (availableFamilies.includes("exponential")) {
-    const hasExponential = [bestCandidate, ...distractors].some((candidate) => candidate?.line?.family === "exponential");
-    if (!hasExponential) {
-      const exponentialCandidate = createRandomCandidate(usedLabels, "exponential");
-      if (exponentialCandidate) {
-        if (distractors.length >= 3) {
-          const removableIndex = distractors.findIndex((candidate) => candidate.line?.family === "linear");
-          const removed = removableIndex >= 0 ? distractors.splice(removableIndex, 1)[0] : distractors.pop();
-          if (removed) {
-            usedLabels.delete(removed.label);
-          }
-        }
-        distractors.push(exponentialCandidate);
-        usedLabels.add(exponentialCandidate.label);
-      }
-    }
-  }
-
-  if (availableFamilies.includes("logarithmic")) {
-    const hasLogarithmic = [bestCandidate, ...distractors].some((candidate) => candidate?.line?.family === "logarithmic");
-    if (!hasLogarithmic) {
-      const logarithmicCandidate = createRandomCandidate(usedLabels, "logarithmic");
-      if (logarithmicCandidate) {
-        if (distractors.length >= 3) {
-          const removableIndex = distractors.findIndex((candidate) => candidate.line?.family === "linear");
-          const removed = removableIndex >= 0 ? distractors.splice(removableIndex, 1)[0] : distractors.pop();
-          if (removed) {
-            usedLabels.delete(removed.label);
-          }
-        }
-        distractors.push(logarithmicCandidate);
-        usedLabels.add(logarithmicCandidate.label);
-      }
-    }
-  }
-
   while (distractors.length < 3) {
-    const randomCandidate = createRandomCandidate(usedLabels);
+    const randomCandidate = createRandomCandidate(usedLabels, targetFamily);
     if (!randomCandidate) {
       break;
     }

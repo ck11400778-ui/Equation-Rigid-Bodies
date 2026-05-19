@@ -10,6 +10,10 @@ create table if not exists public.leaderboard_entries (
 
 alter table public.leaderboard_entries enable row level security;
 
+grant select on public.leaderboard_entries to anon;
+grant insert on public.leaderboard_entries to anon;
+grant usage, select on sequence public.leaderboard_entries_id_seq to anon;
+
 create policy "leaderboard_select_all"
 on public.leaderboard_entries
 for select
