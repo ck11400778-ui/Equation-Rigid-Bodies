@@ -1221,6 +1221,172 @@ function buildCellBasedLinearCandidates() {
   return Array.from(byLabel.values());
 }
 
+function addBestCandidate(byLabel, candidate, minimumClear = 3) {
+  if (!candidate || candidate.clearCount < minimumClear) {
+    return;
+  }
+
+  const existing = byLabel.get(candidate.label);
+  if (!existing || candidate.clearCount > existing.clearCount || (candidate.clearCount === existing.clearCount && candidate.length > existing.length)) {
+    byLabel.set(candidate.label, candidate);
+  }
+}
+
+function buildCellBasedQuadraticCandidates() {
+  const byLabel = new Map();
+
+  getAllOccupiedCells().forEach((cell) => {
+    const point = toMathCoord(cell);
+    [-1, 1].forEach((a) => {
+      for (let h = point.x - 2; h <= point.x + 2; h += 1) {
+        const k = point.y - a * ((point.x - h) ** 2);
+        if (Math.abs(k) > COORD_MAX_Y + 4) {
+          continue;
+        }
+        const formula = {
+          family: "quadratic",
+          id: `quad-fit-${a}-${h}-${k}`,
+          a,
+          h,
+          k,
+          length: 4,
+          labelStyle: Math.random() < 0.5 ? "vertex" : "standard",
+        };
+        const line = getEquationData(formula, cell);
+        addBestCandidate(byLabel, {
+          bodyId: null,
+          label: line.label,
+          line,
+          clearCount: getCellsHitByLine(line).length,
+          length: formula.length,
+        });
+      }
+    });
+  });
+
+  return Array.from(byLabel.values());
+}
+
+function buildCellBasedCircleCandidates() {
+  const byLabel = new Map();
+  const radii = [2, 3, 4];
+
+  getAllOccupiedCells().forEach((cell) => {
+    const point = toMathCoord(cell);
+    radii.forEach((r) => {
+      const centers = [
+        { h: point.x - r, k: point.y },
+        { h: point.x + r, k: point.y },
+        { h: point.x, k: point.y - r },
+        { h: point.x, k: point.y + r },
+      ];
+
+      centers.forEach((center) => {
+        if (Math.abs(center.h) > COORD_MAX_X + 4 || Math.abs(center.k) > COORD_MAX_Y + 4) {
+          return;
+        }
+        const formula = {
+          family: "circle",
+          id: `circle-fit-${center.h}-${center.k}-${r}`,
+          h: center.h,
+          k: center.k,
+          r,
+          length: 4,
+          labelStyle: Math.random() < 0.5 ? "center" : "expanded",
+        };
+        const line = getEquationData(formula, cell);
+        addBestCandidate(byLabel, {
+          bodyId: null,
+          label: line.label,
+          line,
+          clearCount: getCellsHitByLine(line).length,
+          length: formula.length,
+        });
+      });
+    });
+  });
+
+  return Array.from(byLabel.values());
+}
+
+function buildCellBasedExponentialCandidates() {
+  const byLabel = new Map();
+
+  getAllOccupiedCells().forEach((cell) => {
+    const point = toMathCoord(cell);
+    [2, 3].forEach((base) => {
+      [-1, 1].forEach((a) => {
+        for (let h = point.x - 2; h <= point.x + 1; h += 1) {
+          const k = point.y - a * (base ** (point.x - h));
+          if (!Number.isFinite(k) || Math.abs(k) > COORD_MAX_Y + 6) {
+            continue;
+          }
+          const formula = {
+            family: "exponential",
+            id: `exp-fit-${a}-${base}-${h}-${k}`,
+            a,
+            base,
+            h,
+            k,
+            length: base === 3 ? 3 : 4,
+          };
+          const line = getEquationData(formula, cell);
+          addBestCandidate(byLabel, {
+            bodyId: null,
+            label: line.label,
+            line,
+            clearCount: getCellsHitByLine(line).length,
+            length: formula.length,
+          });
+        }
+      });
+    });
+  });
+
+  return Array.from(byLabel.values());
+}
+
+function buildCellBasedLogarithmicCandidates() {
+  const byLabel = new Map();
+
+  getAllOccupiedCells().forEach((cell) => {
+    const point = toMathCoord(cell);
+    [2, 3].forEach((base) => {
+      [-1, 1].forEach((a) => {
+        [1, 2, 4].forEach((distance) => {
+          const h = point.x - distance;
+          if (point.x - h <= 0) {
+            return;
+          }
+          const k = point.y - a * (Math.log(point.x - h) / Math.log(base));
+          if (!Number.isFinite(k) || Math.abs(k) > COORD_MAX_Y + 6) {
+            return;
+          }
+          const formula = {
+            family: "logarithmic",
+            id: `log-fit-${a}-${base}-${h}-${k}`,
+            a,
+            base,
+            h,
+            k,
+            length: base === 3 ? 3 : 4,
+          };
+          const line = getEquationData(formula, cell);
+          addBestCandidate(byLabel, {
+            bodyId: null,
+            label: line.label,
+            line,
+            clearCount: getCellsHitByLine(line).length,
+            length: formula.length,
+          });
+        });
+      });
+    });
+  });
+
+  return Array.from(byLabel.values());
+}
+
 function getVisibleCurveCandidates() {
   const settledBodies = state.bodies.filter(
     (body) =>
@@ -1274,24 +1440,37 @@ function getVisibleLineCandidates() {
     .sort((a, b) => b.clearCount - a.clearCount || b.length - a.length || (a.bodyId ?? 0) - (b.bodyId ?? 0));
 }
 
-function getCandidatesByFamily() {
-  const families = new Map();
-  getVisibleLineCandidates().forEach((candidate) => {
-    const family = candidate.line?.family;
-    if (!family) {
-      return;
-    }
-    if (!families.has(family)) {
-      families.set(family, []);
-    }
-    families.get(family).push(candidate);
+function getVisibleCandidatesForFamily(family) {
+  const byLabel = new Map();
+  let candidates = [];
+
+  if (family === "linear") {
+    candidates = buildCellBasedLinearCandidates();
+  } else if (family === "quadratic") {
+    candidates = [...buildCellBasedQuadraticCandidates(), ...getVisibleCurveCandidates().filter((candidate) => candidate.line?.family === "quadratic")];
+  } else if (family === "circle") {
+    candidates = [...buildCellBasedCircleCandidates(), ...getVisibleCurveCandidates().filter((candidate) => candidate.line?.family === "circle")];
+  } else if (family === "exponential") {
+    candidates = [...buildCellBasedExponentialCandidates(), ...getVisibleCurveCandidates().filter((candidate) => candidate.line?.family === "exponential")];
+  } else if (family === "logarithmic") {
+    candidates = [...buildCellBasedLogarithmicCandidates(), ...getVisibleCurveCandidates().filter((candidate) => candidate.line?.family === "logarithmic")];
+  }
+
+  candidates.forEach((candidate) => {
+    addBestCandidate(byLabel, candidate, family === "linear" ? 2 : 3);
   });
 
-  families.forEach((candidates, family) => {
-    families.set(
-      family,
-      candidates.slice().sort((a, b) => b.clearCount - a.clearCount || b.length - a.length || (a.bodyId ?? 0) - (b.bodyId ?? 0))
-    );
+  return Array.from(byLabel.values())
+    .sort((a, b) => b.clearCount - a.clearCount || b.length - a.length || (a.bodyId ?? 0) - (b.bodyId ?? 0));
+}
+
+function getCandidatesByFamily() {
+  const families = new Map();
+  getAvailableFamilies().forEach((family) => {
+    const candidates = getVisibleCandidatesForFamily(family);
+    if (candidates.length > 0) {
+      families.set(family, candidates);
+    }
   });
 
   return families;
